@@ -1250,15 +1250,10 @@ class NativePlayer extends PlatformPlayer {
       await waitForVideoControllerInitializationIfAttached;
     }
 
-    final name = property.toNativeUtf8();
-    final data = value.toNativeUtf8();
-    mpv.mpv_set_property_string(
-      ctx,
-      name.cast(),
-      data.cast(),
-    );
-    calloc.free(name);
-    calloc.free(data);
+    // [fork, 同上游 PR #1454 / issue #1395] 与 [command] 同路：async 配置下
+    // 走 mpv_set_property_async，由 libmpv 自己的线程执行。同步写 --vo/--wid/--vid
+    // 会在调用线程（= Android 主线程）重建视频输出与 MediaCodec，低端机 ANR。
+    await _setPropertyString(property, value);
   }
 
   /// Retrieves the value of a property from the internal libmpv instance of this [Player].
