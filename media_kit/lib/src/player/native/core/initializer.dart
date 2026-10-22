@@ -46,11 +46,15 @@ class Initializer {
   }
 
   /// Disposes [Pointer<mpv_handle>].
-  void dispose(Pointer<generated.mpv_handle> ctx) {
+  ///
+  /// [fork, 同上游 PR #1424] 返回 [WakeUpNativeCallable]，由调用方在
+  /// `mpv_terminate_destroy` join 核心线程之后再 close。
+  WakeUpNativeCallable? dispose(Pointer<generated.mpv_handle> ctx) {
     if (!isExecmemRestricted) {
-      InitializerNativeCallable(mpv).dispose(ctx);
+      return InitializerNativeCallable(mpv).dispose(ctx);
     } else {
       InitializerIsolate().dispose(mpv, ctx);
+      return null;
     }
   }
 }

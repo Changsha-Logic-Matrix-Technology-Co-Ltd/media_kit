@@ -57,15 +57,18 @@ class InitializerNativeCallable {
   }
 
   /// Disposes [Pointer<mpv_handle>].
-  void dispose(Pointer<generated.mpv_handle> ctx) {
+  ///
+  /// [fork, 同上游 PR #1424] 不在此 close NativeCallable：清空 wakeup 回调
+  /// 不会等待 mpv 核心线程上在途的回调，提前 close 会 SIGABRT
+  /// （"Callback invoked after it has been deleted"，上游 issue #1443）。
+  /// 返回的 callable 须在 `mpv_terminate_destroy` 之后 close。
+  WakeUpNativeCallable? dispose(Pointer<generated.mpv_handle> ctx) {
     _locks.remove(ctx.address);
     _eventCallbacks.remove(ctx.address);
 
-    // Clear the wakeup callback in libmpv before closing NativeCallable
-    // to prevent libmpv from invoking a deleted callback
     mpv.mpv_set_wakeup_callback(ctx, nullptr, nullptr);
-    
-    _wakeUpNativeCallables.remove(ctx.address)?.close();
+
+    return _wakeUpNativeCallables.remove(ctx.address);
   }
 
   void _callback(Pointer<generated.mpv_handle> ctx) {

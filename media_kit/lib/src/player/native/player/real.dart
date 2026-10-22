@@ -64,6 +64,12 @@ void nativeEnsureInitialized({String? libmpv}) {
   });
 }
 
+/// [fork] 后台 isolate 中销毁 mpv 句柄：args = [libmpv 路径, mpv_handle 地址]。
+void _terminateDestroy(List<Object> args) {
+  final mpv = generated.MPV(DynamicLibrary.open(args[0] as String));
+  mpv.mpv_terminate_destroy(Pointer.fromAddress(args[1] as int));
+}
+
 /// {@template native_player}
 ///
 /// NativePlayer
@@ -101,10 +107,20 @@ class NativePlayer extends PlatformPlayer {
 
       await super.dispose();
 
-      Initializer(mpv).dispose(ctx);
+      final callable = Initializer(mpv).dispose(ctx);
 
-      Future.delayed(const Duration(seconds: 5), () {
-        mpv.mpv_terminate_destroy(ctx);
+      // [fork] mpv_terminate_destroy 会 join mpv 核心线程（拆 vo/解码器/音频输出），
+      // 低端机可阻塞数秒；Flutter 3.41+ 主 isolate 即 Android 主线程，放这里会 ANR。
+      // 改到后台 isolate 执行（mpv client API 线程安全，同进程指针地址可直接传递）。
+      final args = [NativeLibrary.path, ctx.address];
+      // NativeCallable 只能在创建它的（主）isolate close，且须在 terminate_destroy
+      // join 核心线程之后（上游 PR #1424 / issue #1443）。
+      Future.delayed(const Duration(seconds: 5), () async {
+        try {
+          await compute(_terminateDestroy, args);
+        } finally {
+          callable?.close();
+        }
       });
     }
 
