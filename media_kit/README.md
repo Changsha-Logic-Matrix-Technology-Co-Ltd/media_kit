@@ -1,3 +1,12 @@
+> **[fork]** 基于上游 media_kit 1.2.6（commit c6450ac2，分支 `fork/1.2.6`），可经 `dependency_overrides` 以 git 依赖引用（`path: media_kit`，ref 为 `v1.2.6-fork.N` tag）。
+> 改动（均标注 `[fork]`，均对应上游未合并的修复，用于 Flutter 3.41+ 主 isolate = Android 主线程场景下的低端机 ANR）：
+> 1. `NativePlayer.dispose()`：延迟 5s 的 `mpv_terminate_destroy` 改到后台 isolate 执行（上游 issue #700 / #1395）。
+> 2. `NativeCallable` 在 `mpv_terminate_destroy` 之后再 close（上游 PR #1424，修 issue #1443 的 SIGABRT）。
+> 3. 公开 `setProperty` 改走 `mpv_set_property_async`（上游 PR #1454，避免主线程重建 vo/MediaCodec）。
+> 4. 合入上游已 merge、但尚未发版的 PR #1446（修 getProperty/_setProperty/_command、Media、content uri 的原生内存泄漏；
+>    其中 async `_setProperty` 发送失败时 completer 永不完成，上面第 3 条改动依赖此修复）。
+> 升级官方版本前，确认上游是否已合入以上修复，再移除本 fork。
+
 # [package:media_kit](https://github.com/media-kit/media-kit)
 
 #### A cross-platform video player & audio player for Flutter & Dart.
